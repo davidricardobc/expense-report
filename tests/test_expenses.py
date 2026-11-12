@@ -6,7 +6,8 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from report.expenses import Expense, ReportError, parse_row, read_expenses, summary
+from report.expenses import (Expense, ReportError, monthly_report, monthly_totals, parse_row,
+                             read_expenses, summary)
 
 ROW = {"date": "2026-10-03", "description": "Taxi", "amount": "12.50", "currency": "usd"}
 
@@ -53,6 +54,29 @@ class ReadAndSummarise(unittest.TestCase):
         self.assertEqual(summary([]), "No expenses.")
 
 
+def exp(day: str, amount: str, currency: str) -> Expense:
+    return Expense(date.fromisoformat(day), "x", Decimal(amount), currency)
+
+
+class Monthly(unittest.TestCase):
+    def test_sums_per_currency_within_a_month(self) -> None:
+        got = monthly_totals([exp("2026-10-03", "12.50", "USD"), exp("2026-10-09", "7.25", "USD"),
+                              exp("2026-10-05", "9", "EUR")])
+        self.assertEqual(got, {"2026-10": {"USD": Decimal("19.75"), "EUR": Decimal("9")}})
+
+    def test_splits_on_month_boundary(self) -> None:
+        got = monthly_totals([exp("2026-09-30", "1", "USD"), exp("2026-10-01", "2", "USD")])
+        self.assertEqual(sorted(got), ["2026-09", "2026-10"])
+
+    def test_report_is_chronological_with_sorted_currencies(self) -> None:
+        text = monthly_report([exp("2026-10-01", "12.50", "USD"), exp("2026-09-30", "9.00", "EUR"),
+                               exp("2026-10-02", "3", "EUR")])
+        self.assertEqual(text, "2026-09\n  EUR 9.00\n2026-10\n  EUR 3\n  USD 12.50")
+
+    def test_report_of_nothing(self) -> None:
+        self.assertEqual(monthly_report([]), "No expenses.")
+
+
 class Cli(unittest.TestCase):
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run([sys.executable, "-m", "report", *args], capture_output=True, text=True)
@@ -61,6 +85,15 @@ class Cli(unittest.TestCase):
         out = self.run_cli("data/sample.csv")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("expenses from", out.stdout)
+
+    def test_by_month(self) -> None:
+        path = write_csv("date,description,amount,currency\n2026-10-03,Taxi,12.50,USD\n")
+        out = self.run_cli(str(path), "--by-month")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("2026-10\n  USD 12.50", out.stdout)
+
+    def test_unknown_flag_exits_2(self) -> None:
+        self.assertEqual(self.run_cli("data/sample.csv", "--nope").returncode, 2)
 
     def test_bad_file_exits_1(self) -> None:
         self.assertEqual(self.run_cli("missing.csv").returncode, 1)
