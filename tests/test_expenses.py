@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from report.expenses import Expense, ReportError, parse_row, read_expenses, summary
+from report.expenses import Expense, ReportError, parse_row, read_expenses, summary, totals_by_currency
 
 ROW = {"date": "2026-10-03", "description": "Taxi", "amount": "12.50", "currency": "usd"}
 
@@ -53,7 +53,35 @@ class ReadAndSummarise(unittest.TestCase):
         self.assertEqual(summary([]), "No expenses.")
 
 
+def exp(amount: str, currency: str) -> Expense:
+    return Expense(date(2026, 10, 3), "Item", Decimal(amount), currency)
+
+
+class Totals(unittest.TestCase):
+    def test_totals_sum_per_currency(self) -> None:
+        lines = totals_by_currency([exp("10", "EUR"), exp("5", "EUR"), exp("7", "USD")]).split("\n")
+        self.assertEqual(lines, ["EUR 15", "USD 7"])
+
+    def test_totals_sorted_by_currency_code(self) -> None:
+        lines = totals_by_currency([exp("1", "USD"), exp("1", "EUR"), exp("1", "COP")]).split("\n")
+        self.assertEqual([line[:3] for line in lines], ["COP", "EUR", "USD"])
+
+    def test_totals_format_two_decimals(self) -> None:
+        self.assertEqual(totals_by_currency([exp("100", "EUR"), exp("41.90", "EUR")]), "EUR 141.90")
+
+    def test_totals_of_nothing(self) -> None:
+        self.assertEqual(totals_by_currency([]), "")
+
+
 class Cli(unittest.TestCase):
+    def test_prints_totals_after_summary(self) -> None:
+        path = write_csv("date,description,amount,currency\n2026-10-03,A,5.50,usd\n2026-10-04,B,1.00,eur\n")
+        out = subprocess.run([sys.executable, "-m", "report", str(path)], capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        lines = out.stdout.splitlines()
+        self.assertTrue(lines[0].startswith("2 expenses from"))
+        self.assertEqual(lines[1:], ["EUR 1.00", "USD 5.50"])
+
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run([sys.executable, "-m", "report", *args], capture_output=True, text=True)
 
