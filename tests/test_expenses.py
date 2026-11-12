@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from report.expenses import Expense, ReportError, parse_row, read_expenses, summary
+from report.expenses import Expense, ReportError, parse_row, read_expenses, summary, totals_by_currency
 
 ROW = {"date": "2026-10-03", "description": "Taxi", "amount": "12.50", "currency": "usd"}
 
@@ -53,7 +53,38 @@ class ReadAndSummarise(unittest.TestCase):
         self.assertEqual(summary([]), "No expenses.")
 
 
+class Totals(unittest.TestCase):
+    def test_totals_sum_each_currency(self) -> None:
+        expenses = [
+            parse_row({**ROW, "amount": "100", "currency": "eur"}, 2),
+            parse_row({**ROW, "amount": "5.50", "currency": "usd"}, 3),
+            parse_row({**ROW, "amount": "41.90", "currency": "EUR"}, 4),
+        ]
+        self.assertEqual(totals_by_currency(expenses), {"EUR": Decimal("141.90"), "USD": Decimal("5.50")})
+
+    def test_totals_are_ordered_by_currency_code(self) -> None:
+        expenses = [parse_row({**ROW, "currency": c}, 2) for c in ("USD", "EUR", "COP")]
+        self.assertEqual(list(totals_by_currency(expenses)), ["COP", "EUR", "USD"])
+
+    def test_totals_of_nothing(self) -> None:
+        self.assertEqual(totals_by_currency([]), {})
+
+
 class Cli(unittest.TestCase):
+    def test_cli_prints_a_line_per_currency(self) -> None:
+        path = write_csv(
+            "date,description,amount,currency\n"
+            "2026-10-03,Taxi,12.50,USD\n"
+            "2026-10-05,Lunch,100,EUR\n"
+            "2026-10-06,Dinner,41.9,EUR\n"
+        )
+        out = self.run_cli(str(path))
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(
+            out.stdout.splitlines()[1:], ["EUR 141.90", "USD 12.50"]
+        )
+        self.assertIn("expenses from", out.stdout.splitlines()[0])
+
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run([sys.executable, "-m", "report", *args], capture_output=True, text=True)
 
