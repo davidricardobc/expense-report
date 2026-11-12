@@ -27,3 +27,9 @@ can be delivered.
 If you are given feedback on an earlier plan, read that plan first. Address every point of the
 feedback and keep what it did not object to. If a point conflicts with AGENTS.md or the issue,
 follow AGENTS.md and say so in the plan.
+
+## Triage first (inspired by Warp's software factory)
+Before the plan, add a section **Triage** at the top of `.factory/plan.md` with one of:
+- `AUTOMATABLE`: small, clear, inside SCOPE, standard library only.
+- `NEEDS-NARROWING`: the issue asks for more than the rules allow (new dependency, more than ~150 lines, outside SCOPE). Plan only the part that fits and say what a human must decide for the rest.
+Then estimate the change size in lines and name which gate in gates/ could stop it, so the builder stays inside every rule.

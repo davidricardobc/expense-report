@@ -20,3 +20,6 @@ The final line of `.factory/review.md` must be exactly one of these two, with no
 
 VERDICT: APPROVE
 VERDICT: REJECT
+
+## Extra rejection rule
+- Reject if there are surplus tests: two or more tests that check the same behaviour, or tests for code the plan did not ask for. Name them. (Warp found redundant tests are a common agent failure.)

@@ -16,3 +16,9 @@ Standard library only.
 ## Factory rules
 - Phase state lives in `.factory/` as markdown files. Never put plan or review text in code comments.
 - Only the paths in SCOPE (factory.conf) may change. Do not touch factory.sh, lib/, gates/, .claude/, data/ or this file.
+
+## Team rules (David's factory)
+- Read the narrowest reasonable version of the ticket. If it needs a new dependency, plan the stdlib-only part and list the rest under Out of scope.
+- One test per behaviour. No duplicate or "surplus" tests that check the same thing twice.
+- Never write raw input, secrets or personal data to files or logs.
+- Update README.md usage only if the CLI output or flags change.
